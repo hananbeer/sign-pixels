@@ -120,9 +120,12 @@ async function signImage() {
   canvas.width = el_img.width
   canvas.height = el_img.height
   
+  // looks like canvas bug doesn't allow writing onto transparent areas of the image
+  // or something something (pixels must be over 30303030 or something)
+  ctx.fillStyle = (el_bug ? '#ffffffa9' : '#ffffffaa');
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
   
   ctx.drawImage(el_img, 0, 0)
-  ctx.globalCompositeOperation = 'destination-in';
 
   const image = ctx.getImageData(0, 0, canvas.width, canvas.height)
   
