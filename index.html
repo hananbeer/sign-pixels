@@ -5,11 +5,12 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  background-color: pink;
 }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js" integrity="sha512-FDcVY+g7vc5CXANbrTSg1K5qLyriCsGDYCE02Li1tXEYdNQPvLPHNE+rT2Mjei8N7fZbe0WLhw27j2SrGRpdMg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
-<input type="text" id="el_handle" value="@port_dev" />
+<input type="text" id="el_handle" value="@port_dev (not implemented yet)" maxlength="15" disabled style="width: 220px" />
 <br />
 
 <input type="file" id="el_file" style="display: none">
@@ -24,7 +25,7 @@ body {
   <input type="button" value="verify" onclick="verifyImage()" />
 </div>
 <hr>
-<small>signed image by address:</small>
+<small>signed image by address: (hardcoded; TODO: implement)</small>
 <span id="el_addr">0x..</span>
 <input type="button" value="download" onclick="onImageDownload()" />
 <br />
@@ -88,6 +89,7 @@ async function signImage() {
 
 async function verifyImage() {
   const ctx = canvas.getContext('2d');
+  ctx.drawImage(el_img, 0, 0);
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
   let isig = 0n
