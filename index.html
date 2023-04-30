@@ -7,10 +7,15 @@ body {
   align-items: center;
   background-color: pink;
 }
+  
+canvas {
+  width: 400px;
+  height: 400px;
+}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js" integrity="sha512-FDcVY+g7vc5CXANbrTSg1K5qLyriCsGDYCE02Li1tXEYdNQPvLPHNE+rT2Mjei8N7fZbe0WLhw27j2SrGRpdMg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
-<input type="text" id="el_handle" value="port_dev" maxlength="15" style="width: 220px" />
+<input type="text" id="el_handle" value="port_dev" maxlength="15" />
 <br />
 
 <input type="file" id="el_file" style="display: none">
@@ -34,7 +39,7 @@ body {
 <input type="button" value="download" onclick="onImageDownload()" />
 <br />
 
-<canvas id="canvas" width="400" height="400">
+<canvas id="canvas">
 </canvas>
 
 <script>
@@ -47,6 +52,7 @@ el_addr.innerText = wallet.address
 // 256-bit r, 256-bit s, 8-bit v = 520-bit signature
 const sig_len = (32 + 32 + 1)
 const handle_len = 15
+const sig_index = 0
 
 
 el_file.addEventListener('change', (event) => {
@@ -111,7 +117,12 @@ function decode(image, count, index=0) {
 async function signImage() {
   const ctx = canvas.getContext('2d')
   ctx.clearRect(0, 0, canvas.width, canvas.height)
+  canvas.width = el_img.width
+  canvas.height = el_img.height
+  
+  
   ctx.drawImage(el_img, 0, 0)
+  ctx.globalCompositeOperation = 'destination-in';
 
   const image = ctx.getImageData(0, 0, canvas.width, canvas.height)
   
@@ -121,7 +132,7 @@ async function signImage() {
   let handle_data = Array(handle_len).fill(0).map((a, i) => handle_str.charCodeAt(i) || 0x20)
 
   // encode zeros for signature so decoder has canonical representation basis
-  encode(image, empty_sig)
+  encode(image, empty_sig, sig_index)
   encode(image, handle_data, sig_len)
   
   // sign the image with zero sig & handle encoded into it
@@ -130,7 +141,7 @@ async function signImage() {
   console.log('signature:', signature)
   
   // now encode the signature into the image
-  encode(image, signature)
+  encode(image, signature, sig_index)
 
   // Put the modified ImageData object back onto the canvas
   ctx.putImageData(image, 0, 0)
@@ -143,12 +154,12 @@ async function verifyImage() {
   //ctx.drawImage(el_img, 0, 0)
 
   const image = ctx.getImageData(0, 0, canvas.width, canvas.height)
-  let signature = decode(image, sig_len)
+  let signature = decode(image, sig_len, sig_index)
   console.log('signature', signature)
   
   // restore image to canonicalized form
   let empty_sig = Array(sig_len).fill(0)
-  encode(image, empty_sig)
+  encode(image, empty_sig, sig_index)
   const message = image.data
   
   let hex_handle = decode(image, handle_len, sig_len)
@@ -157,7 +168,7 @@ async function verifyImage() {
   // Verify the signature
   try {
     const signerAddress = ethers.utils.verifyMessage(message, signature);
-    alert(`address: ${signerAddress} signed handle: ${handle}`)
+    alert(`address: ${signerAddress}\nsigned handle: ${handle}`)
   } catch {
     console.log(`signature verification failed! handle: ${handle}`)
   }
