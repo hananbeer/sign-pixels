@@ -82,28 +82,29 @@ function drop(ev) {
 // encodes image_data inplace
 function encode(image, data, index=0) {
   bytes = BigInt(ethers.utils.hexlify(data))
-  for (let i = 0; i < bytes.length; i++) {
+  let num_bits = bytes.length * 8
+  for (let i = 0; i < num_bits; i++) {
     // (base index + pixel index) * 4 rgba channels + 1 for green channel
     let ptr = (index + i) * 4 + 1
     // green channel
     const g = image.data[ptr]
 
     // encode in the LSBit of the green channel
-    image.data[ptr] = (g & ~1) | parseInt(data & 1n)
+    image.data[ptr] = (g & ~1) | parseInt(data % 2n)
     data /= 2n
   }
 }
 
-// returns BigInt
+// returns hexlify'd data
 function decode(image, count, index=0) {
   let data = 0n
-  for (let i = 0; i < count; i++) {
-    let ptr = (index + i) * 4
+  for (let i = 0; i < count * 8; i++) {
+    let ptr = (index * 8 + i) * 4
     if (image.data[i + 1] % 2 == 1)
-      data |= (2n ** i)
+      data |= (2n ** BigInt(i))
   }
   
-  return data
+  return ethers.utils.hexlify(data)
 }
 
 async function signImage() {
@@ -129,6 +130,8 @@ async function signImage() {
 
   // Put the modified ImageData object back onto the canvas
   ctx.putImageData(image, 0, 0)
+  
+  verifyImage()
 }
 
 async function verifyImage() {
@@ -138,16 +141,18 @@ async function verifyImage() {
   ctx.drawImage(el_img, 0, 0)
 
   const image = ctx.getImageData(0, 0, canvas.width, canvas.height)
-  let isig = decode(image)
-  let signature = '0x' + isig.toString(16).padStart(65*2, '0')
+  let signature = decode(image, sig_len)
   console.log('signature', signature)
+  
+  let hex_handle = decode(image, handle_len, sig_len)
+  let handle = Array.from(ethers.utils.arrayify(hex_handle)).map((i) => String.fromCharCode(i)).join('')
 
   // Verify the signature
   try {
     const signerAddress = ethers.utils.verifyMessage(message, signature);
-    alert('signer address: ' + signerAddress)
+    alert(`address: ${signerAddress} signed handle: ${handle}`)
   } catch {
-    alert('signature verification failed!')
+    console.log(`signature verification failed! handle: ${handle}`)
   }
 }
 
