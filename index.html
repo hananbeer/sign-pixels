@@ -10,7 +10,7 @@ body {
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js" integrity="sha512-FDcVY+g7vc5CXANbrTSg1K5qLyriCsGDYCE02Li1tXEYdNQPvLPHNE+rT2Mjei8N7fZbe0WLhw27j2SrGRpdMg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
-<input type="text" id="el_handle" value="@port_dev" maxlength="15" disabled style="width: 220px" />
+<input type="text" id="el_handle" value="port_dev" maxlength="15" style="width: 220px" />
 <br />
 
 <input type="file" id="el_file" style="display: none">
@@ -81,17 +81,18 @@ function drop(ev) {
 
 // encodes image_data inplace
 function encode(image, data, index=0) {
-  bytes = BigInt(ethers.utils.hexlify(data))
-  let num_bits = bytes.length * 8
+  let hex_data = ethers.utils.hexlify(data)
+  let num_bits = (hex_data.length - 2) * 4 // instead of dividing by 2 and multiplying by 8
+  let big_num = BigInt(hex_data)
   for (let i = 0; i < num_bits; i++) {
     // (base index + pixel index) * 4 rgba channels + 1 for green channel
-    let ptr = (index + i) * 4 + 1
+    let ptr = (index + i) << 2 + 1
     // green channel
     const g = image.data[ptr]
 
     // encode in the LSBit of the green channel
-    image.data[ptr] = (g & ~1) | parseInt(data % 2n)
-    data /= 2n
+    image.data[ptr] = (g & ~1) | parseInt(big_num % 2n)
+    big_num /= 2n
   }
 }
 
@@ -100,10 +101,10 @@ function decode(image, count, index=0) {
   let data = 0n
   for (let i = 0; i < count * 8; i++) {
     let ptr = (index * 8 + i) * 4
-    if (image.data[i + 1] % 2 == 1)
+    if (image.data[ptr] % 2 == 1)
       data |= (2n ** BigInt(i))
   }
-  
+
   return ethers.utils.hexlify(data)
 }
 
@@ -115,7 +116,7 @@ async function signImage() {
   
   // TODO: make sure image data is indeed 4 channels?
   let empty_sig = Array(sig_len).fill(0)
-  let handle_str = el_handle.innerText
+  let handle_str = el_handle.value
   let handle_data = Array(handle_len).fill(0).map((a, i) => handle_str.charCodeAt(i) || 0)
 
   // encode zeros for signature so decoder has canonical representation basis
@@ -138,7 +139,7 @@ async function verifyImage() {
   const ctx = canvas.getContext('2d')
 
   // ensure image is drawn onto canvas
-  ctx.drawImage(el_img, 0, 0)
+  //ctx.drawImage(el_img, 0, 0)
 
   const image = ctx.getImageData(0, 0, canvas.width, canvas.height)
   let signature = decode(image, sig_len)
