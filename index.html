@@ -1,4 +1,15 @@
 <html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:site" content="@high_byte">
+    <meta name="twitter:title" content="Sign your avatar!">
+    <meta name="twitter:description" content="Prove your identity easily with a signed avatar">
+    <meta name="twitter:creator" content="@high_byte">
+    <meta name="twitter:image" content="https://cdn.glitch.global/71e65f74-8d13-4c28-92cf-b0918ed8aa9a/banner.png">
+    <meta name="twitter:domain" content="sign-pixels.glitch.me">
+</head>
 <body>
 <style>
 body {
@@ -115,10 +126,11 @@ function decode(image, count, index=0) {
 
 async function signImage() {
   const provider = new ethers.providers.Web3Provider(window.ethereum);
-  await window.ethereum.request({ method: "eth_requestAccounts" })
-  const signer = provider.getSigner();
-  const wallet = new ethers.Wallet(signer);
+  let accounts = await window.ethereum.request({ method: "eth_requestAccounts" })
+  const signer = provider.getSigner(accounts[0])
+  //const wallet = new ethers.Wallet(signer)
   
+  el_addr.innerText = await signer.getAddress()
   
   const ctx = canvas.getContext('2d')
   ctx.clearRect(0, 0, canvas.width, canvas.height)
@@ -148,8 +160,7 @@ async function signImage() {
   
   // sign the image with zero sig & handle encoded into it
   const message = image.data
-  const signature = await wallet.signMessage(message);
-  el_addr.innerText = wallet.address
+  const signature = await signer.signMessage(message);
   //console.log('signature:', signature)
   
   // now encode the signature into the image
@@ -157,6 +168,8 @@ async function signImage() {
 
   // Put the modified ImageData object back onto the canvas
   ctx.putImageData(image, 0, 0)
+  
+  alert('signing complete!')
 }
 
 async function verifyImage() {
