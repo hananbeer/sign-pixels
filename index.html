@@ -85,8 +85,8 @@ function encode(image, data, index=0) {
   let num_bits = (hex_data.length - 2) * 4 // instead of dividing by 2 and multiplying by 8
   let big_num = BigInt(hex_data)
   for (let i = 0; i < num_bits; i++) {
-    // (base index + pixel index) * 4 rgba channels + 1 for green channel
-    let ptr = (index * 8 + i) * 4 + 1
+    // (base index + pixel index) * 4 srgb channels + 1 for green channel
+    let ptr = (index * 8 + i) * 4 + 2
     // green channel
     const g = image.data[ptr]
 
@@ -100,7 +100,7 @@ function encode(image, data, index=0) {
 function decode(image, count, index=0) {
   let data = 0n
   for (let i = 0; i < count * 8; i++) {
-    let ptr = (index * 8 + i) * 4 + 1
+    let ptr = (index * 8 + i) * 4 + 2
     if (image.data[ptr] % 2 == 1)
       data |= (2n ** BigInt(i))
   }
