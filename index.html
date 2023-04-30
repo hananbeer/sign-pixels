@@ -80,6 +80,31 @@ function drop(ev) {
   fetchBlob(img_url).then((blob) => el_img.src = URL.createObjectURL(blob))
 }
 
+function encode(data, index, image_data) {
+  data = BigInt(ethers.utils.hexlify(data))
+  for (let i = 0; i < data.length; i++) {
+    // (base index + pixel index) * 4 rgba channels + 1 for green channel
+    let ptr = (index + i) * 4 + 1
+    // green channel
+    const g = image_data.data[ptr]
+
+    // encode in the LSBit of the green channel
+    image_data.data[ptr] = (g & ~1) | parseInt(data & 1n)
+    data /= 2n
+  }
+}
+
+function decode(index, count, image_data) {
+  let data = 0n
+  for (let i = 0; i < count; i++) {
+    let ptr = (index + i) * 4
+    if (imageData.data[i + 1] % 2 == 1)
+      data |= (2n ** i)
+  }
+  
+  return data
+}
+
 async function signImage() {
   const ctx = canvas.getContext('2d');  
   ctx.drawImage(el_img, 0, 0);
