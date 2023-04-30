@@ -45,9 +45,8 @@ el_addr.innerText = wallet.address
   
 
 // 256-bit r, 256-bit s, 8-bit v = 520-bit signature
-const sig_len_bits = (32 + 32 + 1) * 8
-const handle_len_bits = 15 * 8
-const max_handle_len = 15
+const sig_len = (32 + 32 + 1)
+const handle_len = 15
 
 
 el_file.addEventListener('change', (event) => {
@@ -80,25 +79,27 @@ function drop(ev) {
   fetchBlob(img_url).then((blob) => el_img.src = URL.createObjectURL(blob))
 }
 
-function encode(data, index, image_data) {
-  data = BigInt(ethers.utils.hexlify(data))
-  for (let i = 0; i < data.length; i++) {
+// encodes image_data inplace
+function encode(image, data, index=0) {
+  bytes = BigInt(ethers.utils.hexlify(data))
+  for (let i = 0; i < bytes.length; i++) {
     // (base index + pixel index) * 4 rgba channels + 1 for green channel
     let ptr = (index + i) * 4 + 1
     // green channel
-    const g = image_data.data[ptr]
+    const g = image.data[ptr]
 
     // encode in the LSBit of the green channel
-    image_data.data[ptr] = (g & ~1) | parseInt(data & 1n)
+    image.data[ptr] = (g & ~1) | parseInt(data & 1n)
     data /= 2n
   }
 }
 
-function decode(index, count, image_data) {
+// returns BigInt
+function decode(image, count, index=0) {
   let data = 0n
   for (let i = 0; i < count; i++) {
     let ptr = (index + i) * 4
-    if (imageData.data[i + 1] % 2 == 1)
+    if (image.data[i + 1] % 2 == 1)
       data |= (2n ** i)
   }
   
@@ -106,57 +107,38 @@ function decode(index, count, image_data) {
 }
 
 async function signImage() {
-  const ctx = canvas.getContext('2d');  
-  ctx.drawImage(el_img, 0, 0);
+  const ctx = canvas.getContext('2d')
+  ctx.drawImage(el_img, 0, 0)
 
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
+  const image = ctx.getImageData(0, 0, canvas.width, canvas.height)
+  
   // TODO: make sure image data is indeed 4 channels?
-  for (let i = 0; i < sig_len * 4; i += 4) {
-    const green = imageData.data[i + 1];
+  let empty_sig = Array(sig_len).fill(0)
+  let handle_str = el_handle.innerText
+  let handle_data = Array(handle_len).fill(0).map((a, i) => handle_str.charCodeAt(i) || 0)
 
-    // zero out green channel's LSBit if not already zero
-    if ((green % 2) == 1)
-      imageData.data[i + 1] = green - 1
-  }
-
-  let message = imageData.data
-  const signature = await wallet.signMessage(message);
+  // encode zeros for signature so decoder has canonical representation basis
+  encode(image, empty_sig.concat(handle_data))
+  
+  // sign the image with zero sig & handle encoded into it
+  const signature = await wallet.signMessage(image.data);
   console.log('signature:', signature)
   
-  let isig = BigInt(signature)
-  
-  for (let i = 0; i < sig_len_bits * 4; i += 4) {
-    const green_bit = parseInt(isig % 2n)
-    isig /= 2n
-
-    // encode sig in green channel LSBit
-    imageData.data[i + 1] ^= green_bit
-  }
+  // now encode the signature into the image
+  encode(image, signature)
 
   // Put the modified ImageData object back onto the canvas
-  ctx.putImageData(imageData, 0, 0);
+  ctx.putImageData(image, 0, 0)
 }
 
 async function verifyImage() {
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(el_img, 0, 0);
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const ctx = canvas.getContext('2d')
 
-  let isig = 0n
-  // TODO: make sure image data is indeed 4 channels?
-  for (let i = 0; i < sig_len * 4; i += 4) {
-    const green = imageData.data[i + 1];
+  // ensure image is drawn onto canvas
+  ctx.drawImage(el_img, 0, 0)
 
-    // zero out green channel's LSBit if not already zero
-    if ((green % 2) == 1) {
-      imageData.data[i + 1] = green - 1
-      isig |= (2n ** BigInt(i >> 2))
-    }
-  }
-
-  let message = imageData.data
-  
+  const image = ctx.getImageData(0, 0, canvas.width, canvas.height)
+  let isig = decode(image)
   let signature = '0x' + isig.toString(16).padStart(65*2, '0')
   console.log('signature', signature)
 
