@@ -86,7 +86,7 @@ function encode(image, data, index=0) {
   let big_num = BigInt(hex_data)
   for (let i = 0; i < num_bits; i++) {
     // (base index + pixel index) * 4 rgba channels + 1 for green channel
-    let ptr = (index + i) << 2 + 1
+    let ptr = (index * 8 + i) * 4 + 1
     // green channel
     const g = image.data[ptr]
 
@@ -100,7 +100,7 @@ function encode(image, data, index=0) {
 function decode(image, count, index=0) {
   let data = 0n
   for (let i = 0; i < count * 8; i++) {
-    let ptr = (index * 8 + i) * 4
+    let ptr = (index * 8 + i) * 4 + 1
     if (image.data[ptr] % 2 == 1)
       data |= (2n ** BigInt(i))
   }
@@ -110,6 +110,7 @@ function decode(image, count, index=0) {
 
 async function signImage() {
   const ctx = canvas.getContext('2d')
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
   ctx.drawImage(el_img, 0, 0)
 
   const image = ctx.getImageData(0, 0, canvas.width, canvas.height)
@@ -117,13 +118,15 @@ async function signImage() {
   // TODO: make sure image data is indeed 4 channels?
   let empty_sig = Array(sig_len).fill(0)
   let handle_str = el_handle.value
-  let handle_data = Array(handle_len).fill(0).map((a, i) => handle_str.charCodeAt(i) || 0)
+  let handle_data = Array(handle_len).fill(0).map((a, i) => handle_str.charCodeAt(i) || 0x20)
 
   // encode zeros for signature so decoder has canonical representation basis
-  encode(image, empty_sig.concat(handle_data))
+  encode(image, empty_sig)
+  encode(image, handle_data, sig_len)
   
   // sign the image with zero sig & handle encoded into it
-  const signature = await wallet.signMessage(image.data);
+  const message = image.data
+  const signature = await wallet.signMessage(message);
   console.log('signature:', signature)
   
   // now encode the signature into the image
@@ -131,8 +134,6 @@ async function signImage() {
 
   // Put the modified ImageData object back onto the canvas
   ctx.putImageData(image, 0, 0)
-  
-  verifyImage()
 }
 
 async function verifyImage() {
@@ -144,6 +145,11 @@ async function verifyImage() {
   const image = ctx.getImageData(0, 0, canvas.width, canvas.height)
   let signature = decode(image, sig_len)
   console.log('signature', signature)
+  
+  // restore image to canonicalized form
+  let empty_sig = Array(sig_len).fill(0)
+  encode(image, empty_sig)
+  const message = image.data
   
   let hex_handle = decode(image, handle_len, sig_len)
   let handle = Array.from(ethers.utils.arrayify(hex_handle)).map((i) => String.fromCharCode(i)).join('')
