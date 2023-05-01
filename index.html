@@ -215,7 +215,8 @@ async function verifyImage() {
   try {
     if (!handle.match(/^[a-zA-Z0-9_]+ *$/))
         throw 'no sig'
-    
+
+    handle = handle.trimEnd()
     const signerAddress = ethers.utils.verifyMessage(message, signature);
     //alert(`address: ${signerAddress}\nsigned handle: ${handle}`)
     el_signerAddress.innerText = signerAddress
