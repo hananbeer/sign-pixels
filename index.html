@@ -1,0 +1,240 @@
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:site" content="@high_byte">
+    <meta name="twitter:title" content="Sign your avatar!">
+    <meta name="twitter:description" content="Prove your identity easily with a signed avatar">
+    <meta name="twitter:creator" content="@high_byte">
+    <meta name="twitter:image" content="https://cdn.glitch.global/71e65f74-8d13-4c28-92cf-b0918ed8aa9a/banner.png">
+    <meta name="twitter:domain" content="sign-pixels.glitch.me">
+</head>
+<body>
+<style>
+body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: pink;
+}
+  
+canvas {
+  max-width: 400px;
+  max-height: 400px;
+}
+
+#lbl_bug {
+  display: none;
+}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js" integrity="sha512-FDcVY+g7vc5CXANbrTSg1K5qLyriCsGDYCE02Li1tXEYdNQPvLPHNE+rT2Mjei8N7fZbe0WLhw27j2SrGRpdMg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<input type="text" id="el_handle" value="high_byte" maxlength="15" />
+<br />
+
+<input type="file" id="el_file" style="display: none">
+
+<div ondrop="drop(event)" ondragover="allowDrop(event)">
+  <label for="el_file">Choose an image: (click to upload)<br />
+  <img id="el_img" style="display: none" onload="redrawImage(); verifyImage()" />
+    
+  <canvas id="canvas">
+  </canvas>
+</label>  
+      
+</div>
+
+<br />
+
+<input type="button" value="sign" onclick="signImage()" />
+<br />
+<small>signed by:</small>
+<span id="el_signerAddress">0x..</span>
+<small>handle:</small>
+<span id="el_signerHandle">N/A</span>
+
+<br />
+  
+<input type="button" value="download" onclick="onImageDownload()" />
+
+<label for="el_bug" id="lbl_bug"><input type="checkbox" id="el_bug" />bug</label>
+<br />
+<a href="https://twitter.com/high_byte">@high_byte</a>
+  
+<script>
+// 256-bit r, 256-bit s, 8-bit v = 520-bit signature
+const sig_len = (32 + 32 + 1)
+const handle_len = 15
+const sig_index = 0
+
+
+el_file.addEventListener('change', (event) => {
+  const file = event.target.files[0];
+  const reader = new FileReader();
+
+  reader.onload = (event) => {
+    el_img.src = event.target.result;
+  };
+
+  reader.readAsDataURL(file);
+});
+
+async function fetchBlob(url) {
+    const response = await fetch(url);
+    return response.blob();
+}
+  
+function allowDrop(ev) {
+  ev.preventDefault();
+}
+
+function drag(ev) {
+  ev.dataTransfer.setData("text", ev.target.id);
+}
+  
+function redrawImage() {
+  const ctx = canvas.getContext('2d')
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+  canvas.width = el_img.width
+  canvas.height = el_img.height
+  
+  // ensure image is drawn onto canvas
+  ctx.drawImage(el_img, 0, 0)
+}
+
+function drop(ev) {
+  ev.preventDefault();
+  
+  let img_url = ev.dataTransfer.getData("text");
+  if (img_url) {
+    fetchBlob(img_url).then((blob) => {
+      el_img.src = URL.createObjectURL(blob)
+    })
+  } else if (event.dataTransfer.files.length > 0) {
+    const file = event.dataTransfer.files[0];
+    const reader = new FileReader();
+    reader.onload = function() {
+      el_img.src = reader.result;
+    }
+    reader.readAsDataURL(file);
+  }
+}
+
+// encodes image_data inplace
+function encode(image, data, index=0) {
+  let hex_data = ethers.utils.hexlify(data)
+  let num_bits = (hex_data.length - 2) * 4 // instead of dividing by 2 and multiplying by 8
+  let big_num = BigInt(hex_data)
+  for (let i = 0; i < num_bits; i++) {
+    // (base index + pixel index) * 4 srgb channels + 1 for green channel
+    let ptr = (index * 8 + i) * 4 + 2
+    // green channel
+    const g = image.data[ptr]
+
+    // encode in the LSBit of the green channel
+    image.data[ptr] = (g & ~1) | parseInt(big_num % 2n)
+    big_num /= 2n
+  }
+}
+
+// returns hexlify'd data
+function decode(image, count, index=0) {
+  let data = 0n
+  for (let i = 0; i < count * 8; i++) {
+    let ptr = (index * 8 + i) * 4 + 2
+    if (image.data[ptr] % 2 == 1)
+      data |= (2n ** BigInt(i))
+  }
+
+  return ethers.utils.hexlify(data)
+}
+
+async function signImage() {
+  const provider = new ethers.providers.Web3Provider(window.ethereum);
+  let accounts = await window.ethereum.request({ method: "eth_requestAccounts" })
+  const signer = provider.getSigner(accounts[0])
+  //const wallet = new ethers.Wallet(signer)
+
+  redrawImage()
+  
+  const ctx = canvas.getContext('2d')
+  // looks like canvas bug doesn't allow writing onto transparent areas of the image
+  // or something something (pixels must be over 30303030 or something)
+  ctx.fillStyle = (el_bug.checked ? '#ffffffa9' : '#000000');
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  
+  // another approach that fixes the bug...
+  //ctx.fillRect(0, 0, (sig_len + handle_len) * 8, 2)
+  
+  ctx.drawImage(el_img, 0, 0)
+
+  const image = ctx.getImageData(0, 0, canvas.width, canvas.height)
+  
+  // TODO: make sure image data is indeed 4 channels?
+  let empty_sig = Array(sig_len).fill(0)
+  let handle_str = el_handle.value
+  let handle_data = Array(handle_len).fill(0).map((a, i) => handle_str.charCodeAt(i) || 0x20)
+
+  // encode zeros for signature so decoder has canonical representation basis
+  encode(image, empty_sig, sig_index)
+  encode(image, handle_data, sig_index + sig_len)
+  
+  // sign the image with zero sig & handle encoded into it
+  const message = image.data
+  const signature = await signer.signMessage(message);
+  //console.log('signature:', signature)
+  
+  // now encode the signature into the image
+  encode(image, signature, sig_index)
+
+  // Put the modified ImageData object back onto the canvas
+  ctx.putImageData(image, 0, 0)
+  
+  el_signerAddress.innerText = await signer.getAddress()
+  el_signerHandle.innerText = handle_str
+  //alert('signing complete!')
+}
+
+async function verifyImage() {
+  const ctx = canvas.getContext('2d')
+
+  const image = ctx.getImageData(0, 0, canvas.width, canvas.height)
+  let signature = decode(image, sig_len, sig_index)
+  //console.log('signature', signature)
+  
+  // restore image to canonicalized form
+  let empty_sig = Array(sig_len).fill(0)
+  encode(image, empty_sig, sig_index)
+  const message = image.data
+  
+  let hex_handle = decode(image, handle_len, sig_index + sig_len)
+  let handle = Array.from(ethers.utils.arrayify(hex_handle)).map((i) => String.fromCharCode(i)).join('')
+
+  // Verify the signature
+  try {
+    if (!handle.match(/^[a-zA-Z0-9_]+ *$/))
+        throw 'no sig'
+
+    handle = handle.trimEnd()
+    const signerAddress = ethers.utils.verifyMessage(message, signature);
+    //alert(`address: ${signerAddress}\nsigned handle: ${handle}`)
+    el_signerAddress.innerText = signerAddress
+    el_signerHandle.innerText = handle
+  } catch {
+    //alert(`signature verification failed!\nattempt to read handle: ${handle}`)
+    el_signerAddress.innerText = 'N/A'
+    el_signerHandle.innerText = 'N/A'
+  }
+}
+
+function onImageDownload() {
+  const link = document.createElement('a');
+  link.download = 'signed-image.png';
+  link.href = canvas.toDataURL();
+  link.click();
+}
+
+</script>
+</body>
+</html>
