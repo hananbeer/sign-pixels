@@ -250,7 +250,7 @@ async function signImage(demo) {
   // little optimization to only write modified rows of pixels
   let num_pixels = (sig_len + addr_len + handle_len) * 8
   let num_rows = parseInt(num_pixels / canvas.width) + 1
-  ctx.putImageData(image, 0, 0, 0, 0, canvas.width, num_rows)
+  ctx.putImageData(image, 0, 0) //, 0, 0, canvas.width, num_rows)
   
   if (!verifyImage())
     alert('error signing image :(')
@@ -279,12 +279,14 @@ async function verifyImage() {
     const signer_addr = ethers.utils.verifyMessage(message, signature)
     if (signer_addr.toLowerCase() != hex_addr) {
       alert(`WARNING: image encodes signer ${hex_addr}, but actually signed by ${signer_addr.toLowerCase()}`)
+      el_signerAddress.innerText = 'mismatched! ⚠️ ' + signer_addr
+      return false
+    } else {
+      el_signerAddress.innerText = signer_addr
+      el_signerAddress.href = `https://etherscan.io/address/${signer_addr}`
+      el_signerHandle.innerText = handle
+      el_signerHandle.href = `https://twitter.com/${handle}`
     }
-    //alert(`address: ${signer_addr}\nsigned handle: ${handle}`)
-    el_signerAddress.innerText = signer_addr
-    el_signerAddress.href = `https://etherscan.io/address/${signer_addr}`
-    el_signerHandle.innerText = handle
-    el_signerHandle.href = `https://twitter.com/${handle}`
     return true
   } catch {
     //alert(`signature verification failed!\nattempt to read handle: ${handle}`)
