@@ -172,11 +172,14 @@ function encode(image, data, count, index=0) {
   let big_num = BigInt(hex_data)
   for (let i = 0; i < num_bits; i++) {
     // (base index + pixel index) * 4 srgb channels + offset for channel
-    let ptr = (index * 8 + i) * 4 + channel
-    const color = image.data[ptr]
-
-    // encode in the LSBit of the green channel
-    image.data[ptr] = (color & ~1) | parseInt(big_num % 2n)
+    let ptr = (index * 8 + i) * 4
+    
+    // attempt to encode in all 4 channels
+    for (let channel = 0; channel < 4; channel++) {
+      const color = image.data[ptr + channel]
+      // encode in the LSBit of the green channel
+      image.data[ptr + channel] = (color & ~1) | parseInt(big_num % 2n)
+    }
     big_num /= 2n
   }
 }
@@ -274,10 +277,19 @@ async function verifyImage() {
     const ctx = getContext(canvas)
     const image = ctx.getImageData(0, 0, canvas.width, canvas.height)
 
-    let hex_handle = decode(image, handle_len, sig_index + addr_len + sig_len)
-    let handle = Array.from(ethers.utils.arrayify(hex_handle)).map((i) => String.fromCharCode(i)).join('')
-    if (!isValidHandle(handle))
-        throw 'no handle'
+    let handle
+    for (i = 0; i < 4; i++) {
+      // channel is a global here. easier than refactoring decode()
+      channel = i
+      let hex_handle = decode(image, handle_len, sig_index + addr_len + sig_len)
+      handle = Array.from(ethers.utils.arrayify(hex_handle)).map((i) => String.fromCharCode(i)).join('')
+      if (isValidHandle(handle))
+          break
+    }
+    
+    if (i == 4) {
+      throw 'no encoding found in any channel'
+    }
 
     let hex_addr = decode(image, addr_len, sig_index + sig_len).toLowerCase()
     let signature = decode(image, sig_len, sig_index)
@@ -303,7 +315,7 @@ async function verifyImage() {
     }
 
     return true
-  } catch {
+  } catch (err) {
     //alert(`signature verification failed!\nattempt to read handle: ${handle}`)
     el_signerAddress.innerText = 'N/A'
     el_signerAddress.href = '#'
