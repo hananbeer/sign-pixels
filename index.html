@@ -7,7 +7,7 @@
     <meta name="twitter:title" content="Sign your avatar!">
     <meta name="twitter:description" content="Prove your identity easily with a signed avatar">
     <meta name="twitter:creator" content="@high_byte">
-    <meta name="twitter:image" content="https://cdn.glitch.global/71e65f74-8d13-4c28-92cf-b0918ed8aa9a/banner.png">
+    <meta name="twitter:image" content="https://cdn.glitch.global/71e65f74-8d13-4c28-92cf-b0918ed8aa9a/banner2.png">
     <meta name="twitter:domain" content="sign-pixels.glitch.me">
 </head>
 <body>
@@ -17,6 +17,7 @@ body {
   flex-direction: column;
   align-items: center;
   background-color: blanchedalmond;
+  font-family: Roboto Mono, monospace;
 }
   
 canvas {
@@ -26,10 +27,12 @@ canvas {
 
 input[type="button"] {
   border: 2px solid white;
-  border-radius: 15px;
+  border-radius: 10px;
   color: white;
   background-color: coral;
   transition: 0.15s;
+  margin: 5px;
+  padding: 5px;
 }
   
 input[type="button"]:active {
@@ -54,33 +57,26 @@ input[type="button"]:active {
       
 </div>
 
-<br />
-
-<small>(some wallets may take a few seconds to sign)</small>
-<div>
   <input type="button" id="btn_sign" value="Sign" onclick="signImage()" style="width: 150px; height: 50px;" />
-  <br />
-  <input type="button" value="test sign (demo)" onclick="signImage(true)" />
-</div>
-
-<br />
+  
+  <small>(some wallets may take a few seconds to sign)</small>
+  
+  <input type="button" value="test sign (demo key)" onclick="signImage(true)" style="width: 150px;" />
 
 <div>
   <p>
-    signer:
+    <b>signer:</b>
     <a id="el_signerAddress">0x..</a>
   </p>
   <p>
-    handle:
+    <b>handle:</b>
     <a id="el_signerHandle">N/A</a>
   </p>
 </div>
-  
-<br />
-  
+
 <input type="button" value="download" onclick="onImageDownload()" />
 
-<br />
+<hr />
 <a href="https://twitter.com/high_byte">@high_byte</a>
   
 <script>
