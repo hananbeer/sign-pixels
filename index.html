@@ -243,17 +243,30 @@ async function signImage(demo) {
   const message = image.data
   const signature = await signer.signMessage(message);
   //console.log('signature:', signature)
+
+  const verify_addr = ethers.utils.verifyMessage(message, signature)
+  if (verify_addr.toLowerCase() != signer_addr.toLowerCase()) {
+    alert('error signing image! :(')
+    return
+  }
   
   // now encode the signature into the image
   encode(image, signature, sig_len, sig_index)
 
+  let verify_signature = decode(image, sig_len, sig_index)
+  if (verify_signature.toLowerCase() != signature.toLowerCase()) {
+    alert('failed encoding signature! :(')
+    return
+  }
+  
   // little optimization to only write modified rows of pixels
   let num_pixels = (sig_len + addr_len + handle_len) * 8
   let num_rows = parseInt(num_pixels / canvas.width) + 1
   ctx.putImageData(image, 0, 0) //, 0, 0, canvas.width, num_rows)
   
-  if (!verifyImage())
-    alert('error signing image :(')
+  let verified = await verifyImage()
+  if (!verified)
+    alert('error verified image! :(')
 }
 
 async function verifyImage() {
@@ -277,16 +290,18 @@ async function verifyImage() {
 
     handle = handle.trimEnd()
     const signer_addr = ethers.utils.verifyMessage(message, signature)
+    
+    el_signerHandle.innerText = handle
+    el_signerAddress.href = `https://etherscan.io/address/${signer_addr}`
+    el_signerHandle.href = `https://twitter.com/${handle}`
+    el_signerAddress.innerText = signer_addr
+    
     if (signer_addr.toLowerCase() != hex_addr) {
       alert(`WARNING: image encodes signer ${hex_addr}, but actually signed by ${signer_addr.toLowerCase()}`)
       el_signerAddress.innerText = 'mismatched! ⚠️ ' + signer_addr
       return false
-    } else {
-      el_signerAddress.innerText = signer_addr
-      el_signerAddress.href = `https://etherscan.io/address/${signer_addr}`
-      el_signerHandle.innerText = handle
-      el_signerHandle.href = `https://twitter.com/${handle}`
     }
+
     return true
   } catch {
     //alert(`signature verification failed!\nattempt to read handle: ${handle}`)
