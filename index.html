@@ -226,7 +226,11 @@ async function signImage(demo) {
   redrawImage()
   
   const ctx = getContext(canvas)
-  const image = ctx.getImageData(0, 0, canvas.width, canvas.height)
+  let image = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    
+  // little optimization to only write modified rows of pixels
+  let num_pixels = (sig_len + addr_len + handle_len) * 8
+  let num_rows = parseInt(num_pixels / canvas.width) + 1
   
   // TODO: make sure image data is indeed 4 channels?
   let empty_sig = Array(sig_len).fill(0)
@@ -236,6 +240,14 @@ async function signImage(demo) {
   encode(image, empty_sig, sig_len, sig_index)
   encode(image, signer_addr, addr_len, sig_index + sig_len)
   encode(image, handle_data, handle_len, sig_index + addr_len + sig_len)
+  
+  // FUCKING BUG!!!!!
+  // canvas will DESTROY pixels in very unpredictable way (even power of 2 square images will be obliterated)
+  // so have to first let canvas do its carnage and only then proceed normally
+  ctx.putImageData(image, 0, 0)
+  // this is the optimized version; removing this to avoid chance of this bug reoccuring
+  // ctx.putImageData(image, 0, 0, 0, 0, canvas.width, num_rows)
+  image = ctx.getImageData(0, 0, canvas.width, canvas.height)
   
   // sign the image with zero sig & handle encoded into it
   const message = image.data
@@ -256,11 +268,10 @@ async function signImage(demo) {
     alert('failed encoding signature! :(')
     return
   }
-  
-  // little optimization to only write modified rows of pixels
-  let num_pixels = (sig_len + addr_len + handle_len) * 8
-  let num_rows = parseInt(num_pixels / canvas.width) + 1
-  ctx.putImageData(image, 0, 0) //, 0, 0, canvas.width, num_rows)
+
+  //ctx.putImageData(image, 0, 0, 0, 0, canvas.width, num_rows)
+  // taking unoptimized path: see comment above...
+  ctx.putImageData(image, 0, 0)
   
   let verified = await verifyImage()
   //if (!verified)
