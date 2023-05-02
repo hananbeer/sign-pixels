@@ -102,12 +102,13 @@ const sig_index = 0
 
 // srgb is not what you think: 0 for r, 1 for g, 2 for b and 3 for alpha
 // must use the alpha channel, otherwise putImageData will not write pixels with 0 alpha in them
-const channel = 3
+let channel = 3
 
 el_file.addEventListener('change', (event) => {
   const file = event.target.files[0];
   const reader = new FileReader();
 
+  el_img.src = ''
   reader.onload = (event) => {
     el_img.src = event.target.result;
   };
@@ -162,9 +163,12 @@ function drop(ev) {
 }
 
 // encodes image_data inplace
-function encode(image, data, index=0) {
+function encode(image, data, count, index=0) {
   let hex_data = ethers.utils.hexlify(data)
-  let num_bits = (hex_data.length - 2) * 4 // instead of dividing by 2 and multiplying by 8
+  if (!count)
+    count = parseInt((hex_data.length - 2) / 2)
+
+  let num_bits = count * 8
   let big_num = BigInt(hex_data)
   for (let i = 0; i < num_bits; i++) {
     // (base index + pixel index) * 4 srgb channels + offset for channel
@@ -231,9 +235,9 @@ async function signImage(demo) {
   let handle_data = Array(handle_len).fill(0).map((a, i) => handle_str.charCodeAt(i) || 0x20)
 
   // encode zeros for signature so decoder has canonical representation basis
-  encode(image, empty_sig, sig_index)
-  encode(image, signer_addr, sig_index + sig_len)
-  encode(image, handle_data, sig_index + addr_len + sig_len)
+  encode(image, empty_sig, sig_len, sig_index)
+  encode(image, signer_addr, addr_len, sig_index + sig_len)
+  encode(image, handle_data, handle_len, sig_index + addr_len + sig_len)
   
   // sign the image with zero sig & handle encoded into it
   const message = image.data
@@ -241,7 +245,7 @@ async function signImage(demo) {
   //console.log('signature:', signature)
   
   // now encode the signature into the image
-  encode(image, signature, sig_index)
+  encode(image, signature, sig_len, sig_index)
 
   // little optimization to only write modified rows of pixels
   let num_pixels = (sig_len + addr_len + handle_len) * 8
@@ -268,7 +272,7 @@ async function verifyImage() {
     
     // restore image to canonicalized form
     let empty_sig = Array(sig_len).fill(0)
-    encode(image, empty_sig, sig_index)
+    encode(image, empty_sig, sig_len, sig_index)
     const message = image.data
 
     handle = handle.trimEnd()
