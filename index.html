@@ -265,8 +265,8 @@ async function signImage(demo) {
   ctx.putImageData(image, 0, 0) //, 0, 0, canvas.width, num_rows)
   
   let verified = await verifyImage()
-  if (!verified)
-    alert('error verified image! :(')
+  //if (!verified)
+  //  alert('error verified image! :(')
 }
 
 async function verifyImage() {
@@ -297,7 +297,7 @@ async function verifyImage() {
     el_signerAddress.innerText = signer_addr
     
     if (signer_addr.toLowerCase() != hex_addr) {
-      alert(`WARNING: image encodes signer ${hex_addr}, but actually signed by ${signer_addr.toLowerCase()}`)
+      //alert(`WARNING: image encodes signer ${hex_addr}, but actually signed by ${signer_addr.toLowerCase()}`)
       el_signerAddress.innerText = 'mismatched! ⚠️ ' + signer_addr
       return false
     }
