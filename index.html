@@ -16,7 +16,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  background-color: pink;
+  background-color: blanchedalmond;
 }
   
 canvas {
@@ -24,6 +24,18 @@ canvas {
   max-height: 400px;
 }
 
+input[type="button"] {
+  border: 2px solid white;
+  border-radius: 15px;
+  color: white;
+  background-color: coral;
+  transition: 0.15s;
+}
+  
+input[type="button"]:active {
+  color: coral;
+  background-color: white;
+}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js" integrity="sha512-FDcVY+g7vc5CXANbrTSg1K5qLyriCsGDYCE02Li1tXEYdNQPvLPHNE+rT2Mjei8N7fZbe0WLhw27j2SrGRpdMg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
@@ -46,7 +58,8 @@ canvas {
 
 <small>(some wallets may take a few seconds to sign)</small>
 <div>
-  <input type="button" value="sign with wallet" onclick="signImage()" />
+  <input type="button" id="btn_sign" value="Sign" onclick="signImage()" style="width: 150px; height: 50px;" />
+  <br />
   <input type="button" value="test sign (demo)" onclick="signImage(true)" />
 </div>
 
@@ -55,11 +68,11 @@ canvas {
 <div>
   <p>
     signer:
-    <span id="el_signerAddress">0x..</span>
+    <a id="el_signerAddress">0x..</a>
   </p>
   <p>
     handle:
-    <span id="el_signerHandle">N/A</span>
+    <a id="el_signerHandle">N/A</a>
   </p>
 </div>
   
@@ -257,12 +270,16 @@ async function verifyImage() {
     }
     //alert(`address: ${signer_addr}\nsigned handle: ${handle}`)
     el_signerAddress.innerText = signer_addr
+    el_signerAddress.href = `https://etherscan.io/address/${signer_addr}`
     el_signerHandle.innerText = handle
+    el_signerHandle.href = `https://twitter.com/${handle}`
     return true
   } catch {
     //alert(`signature verification failed!\nattempt to read handle: ${handle}`)
     el_signerAddress.innerText = 'N/A'
+    el_signerAddress.href = '#'
     el_signerHandle.innerText = 'N/A'
+    el_signerHandle.href = '#'
     return false
   }
 }
