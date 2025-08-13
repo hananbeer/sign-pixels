@@ -74,6 +74,7 @@ input[type="button"]:active {
   <input type="button" id="btn_sign" value="Sign" onclick="signImage()" style="width: 150px; height: 50px;" />
   
   <small>(some wallets may take a few seconds to sign)</small>
+  <small>(note: sometimes the canvas api may be nondeterministic which may cause mismatches; it can be fixed by encoding redundancies)</small>
   
   <input type="button" value="test sign (demo key)" onclick="signImage(true)" style="width: 150px;" />
 
